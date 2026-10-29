@@ -82,6 +82,7 @@ ENEMY_COLOR = (235, 80, 90)
 TEXT_COLOR = (235, 240, 245)
 VISION_COLOR = (240, 190, 70)
 GOAL_COLOR = (90, 220, 120)
+SHIELD_COLOR = (130, 230, 255)
 
 # ------------------------------------------------------------
 # Funções de Álgebra Linear
@@ -128,11 +129,70 @@ def transform_points(points, position, angle, scale=1.0):
 
 
 # ------------------------------------------------------------
+# Classe Escudo Orbital (Álgebra Linear: Rotações e Afim)
+# ------------------------------------------------------------
+
+class OrbitalShield:
+    def __init__(self, num_orbs=2, radius=55.0, angular_speed=3.0):
+        self.num_orbs = num_orbs
+        self.radius = radius
+        self.angular_speed = angular_speed  # omega em radianos/segundo
+        self.angle = 0.0
+        self.orb_radius = 8.0
+
+    def update(self, dt):
+        # theta(t + dt) = theta(t) + omega * dt
+        self.angle = (self.angle + self.angular_speed * dt) % (2.0 * math.pi)
+
+    def get_orb_positions(self, center_pos):
+        """
+        Calcula as posições no espaço do mundo para cada orbe usando:
+        p_orbe = center_pos + R(theta_i) @ [radius, 0]
+        """
+        positions = []
+        base_vector = np.array([self.radius, 0.0], dtype=float)
+
+        for i in range(self.num_orbs):
+            # Defasagem angular uniforme: 2 * pi * i / N
+            theta_i = self.angle + (2.0 * math.pi * i / self.num_orbs)
+            R = rotation_matrix(theta_i)
+            # Transformação afim: rotação da base + translação para o centro
+            orb_world_pos = center_pos + R @ base_vector
+            positions.append(orb_world_pos)
+        return positions
+
+    def check_enemy_collision(self, enemy, center_pos):
+        """
+        Verifica colisão entre os orbes e o inimigo através do cálculo de
+        distância euclidiana (norma de vetor diferença).
+        Se colidir, empurra o inimigo usando o vetor normal de impacto.
+        """
+        orb_positions = self.get_orb_positions(center_pos)
+        collided = False
+
+        for orb_pos in orb_positions:
+            diff = enemy.pos - orb_pos
+            dist = np.linalg.norm(diff)
+            min_dist = self.orb_radius + 20.0  # raio aproximado do inimigo
+
+            if 0 < dist < min_dist:
+                # Vetor normal unitário de impacto: n = diff / ||diff||
+                impact_normal = diff / dist
+                # Aplica impulso vetorial no inimigo (empurrão)
+                enemy.pos += impact_normal * (min_dist - dist + 15.0)
+                enemy.velocity += impact_normal * 280.0
+                collided = True
+
+        return collided
+
+
+# ------------------------------------------------------------
 # Classe Jogador
 # ------------------------------------------------------------
 
 class Player:
     def __init__(self):
+        self.shield = OrbitalShield(num_orbs=2, radius=55.0, angular_speed=3.0)
         self.reset()
 
     def reset(self):
@@ -192,6 +252,9 @@ class Player:
         # Queda fora do mundo.
         if self.pos[1] > WORLD_HEIGHT:
             self.reset()
+
+        # Atualiza a rotação do escudo orbital
+        self.shield.update(dt)
 
     def _resolve_collisions(self):
         rect = self.rect
@@ -339,6 +402,15 @@ def draw_player(surface, player, camera_x):
     pygame.draw.rect(surface, PLAYER_COLOR, rect, border_radius=6)
 
 
+def draw_shield(surface, player, camera_x):
+    orb_positions = player.shield.get_orb_positions(player.center)
+    for orb_pos in orb_positions:
+        screen_x = int(orb_pos[0] - camera_x)
+        screen_y = int(orb_pos[1])
+        pygame.draw.circle(surface, SHIELD_COLOR, (screen_x, screen_y), int(player.shield.orb_radius))
+        pygame.draw.circle(surface, (255, 255, 255), (screen_x, screen_y), int(player.shield.orb_radius - 3))
+
+
 def draw_platforms(surface, camera_x):
     for platform in platforms:
         rect = platform.copy()
@@ -422,6 +494,7 @@ def draw_hud(surface, player, enemy, distance, dot, can_see):
         f"distance = {distance:.2f}",
         f"forward . direction_unit = {dot:.3f}",
         f"field of view = {'SIM' if can_see else 'NAO'}",
+        f"Shield orbit angle = {math.degrees(player.shield.angle):.1f}° (R(θ) @ r_0)",
         "A/D ou setas: mover   |   W/Espaco: pular   |   R: reiniciar",
     ]
 
@@ -474,6 +547,7 @@ def main():
         keys = pygame.key.get_pressed()
 
         player.update(dt, keys)
+        player.shield.check_enemy_collision(enemy, player.center)
         distance, dot, can_see = enemy.update(player, dt)
 
         # Vitória.
@@ -492,6 +566,7 @@ def main():
         draw_vision(screen, enemy, camera_x, distance, dot, can_see)
         draw_enemy(screen, enemy, camera_x)
         draw_player(screen, player, camera_x)
+        draw_shield(screen, player, camera_x)
         draw_hud(screen, player, enemy, distance, dot, can_see)
 
         pygame.display.flip()

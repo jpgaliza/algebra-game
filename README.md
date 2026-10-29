@@ -56,6 +56,11 @@ Este projeto serve como demonstração prática dos seguintes tópicos matemáti
   $$R(\theta) = \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix}, \quad S(s) = \begin{bmatrix} s & 0 \\ 0 & s \end{bmatrix}$$
   $$\mathbf{p}_{\text{mundo}} = (R \cdot S) \mathbf{p}_{\text{local}} + \mathbf{p}_{\text{inimigo}}$$
 
+### 7. Escudo Orbital (Rotação Paramétrica e Transformação Afim)
+- Orbes protetores orbitam o jogador continuamente aplicando a matriz de rotação 2D $R(\theta(t))$ sobre o vetor base radial $\mathbf{r}_0 = [r, 0]^T$:
+  $$\mathbf{p}_{\text{orbe}, i} = \mathbf{p}_{\text{jogador}} + R\left(\omega t + \frac{2\pi i}{N}\right) \begin{bmatrix} r \\ 0 \end{bmatrix}$$
+- A detecção de colisão entre orbe e inimigo utiliza a norma euclidiana $\|\mathbf{p}_{\text{inimigo}} - \mathbf{p}_{\text{orbe}}\|$. Quando ocorre impacto, um impulso vetorial ao longo do versor normal $\mathbf{\hat{n}} = \frac{\mathbf{d}}{\|\mathbf{d}\|}$ é aplicado para repelir o inimigo.
+
 ---
 
 ## 🚀 Como Executar
