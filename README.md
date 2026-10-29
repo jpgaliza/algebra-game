@@ -71,6 +71,14 @@ Este projeto serve como demonstração prática dos seguintes tópicos matemáti
   $$\mathbf{v}_{\text{projétil}} = v_{\text{disparo}} \cdot \mathbf{\hat{u}}$$
 - **Linha de Mira:** Segmento orientado $\mathbf{p}_{\text{mira}} = \mathbf{p}_{\text{jogador}} + L \cdot \mathbf{\hat{u}}$. Atingir o inimigo reinicia sua posição ao registrar impacto por proximidade de norma euclidiana.
 
+### 9. Ricochete e Reflexão Vetorial Especular (Produto Escalar e Vetores Normais)
+- Quando um projétil colide com a face de uma plataforma, sua velocidade incidente $\mathbf{v}$ é decomposta em relação ao vetor normal unitário da superfície $\mathbf{\hat{n}}$ (derivado da base canônica $\pm\mathbf{e}_1, \pm\mathbf{e}_2$):
+  - Componente perpendicular (projeção ortogonal): $\mathbf{v}_{\perp} = (\mathbf{v} \cdot \mathbf{\hat{n}})\mathbf{\hat{n}}$
+  - Componente tangencial: $\mathbf{v}_{\parallel} = \mathbf{v} - (\mathbf{v} \cdot \mathbf{\hat{n}})\mathbf{\hat{n}}$
+- O vetor de velocidade refletido $\mathbf{v}'$ inverte apenas a componente perpendicular, resultando na equação canônica de reflexão especular da Álgebra Linear:
+  $$\mathbf{v}' = \mathbf{v}_{\parallel} - \mathbf{v}_{\perp} = \mathbf{v} - 2(\mathbf{v} \cdot \mathbf{\hat{n}})\mathbf{\hat{n}}$$
+- Cada projétil suporta até 3 ricochetes consecutivos, permitindo atingir alvos fora da linha de visão direta.
+
 ---
 
 ## 🚀 Como Executar

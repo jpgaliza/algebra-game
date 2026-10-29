@@ -197,8 +197,10 @@ class Projectile:
         self.speed = speed
         self.radius = 5.0
         self.alive = True
-        self.max_lifetime = 3.0  # segundos
+        self.max_lifetime = 3.5  # segundos
         self.lifetime = 0.0
+        self.bounces = 0
+        self.max_bounces = 3  # ricocheteia até 3 vezes
 
         # Vetor diferença (alvo - origem)
         direction = target_pos - self.pos
@@ -237,16 +239,59 @@ class Projectile:
         return False
 
     def check_platform_collision(self, platforms):
-        """Colisão simples com plataformas (destrói o projétil ao colidir)."""
+        """
+        Calcula a colisão e a reflexão especular do vetor velocidade:
+        v' = v - 2 * (v . n) * n
+        onde n é o vetor normal unitário da face atingida (base canônica +-E1, +-E2).
+        """
         rect = pygame.Rect(
             int(self.pos[0] - self.radius),
             int(self.pos[1] - self.radius),
             int(self.radius * 2),
             int(self.radius * 2)
         )
+
         for platform in platforms:
             if rect.colliderect(platform):
-                self.alive = False
+                candidates = []
+
+                # Face superior (normal apontando para cima: -E2 = [0, -1])
+                if self.velocity[1] > 0:
+                    depth = abs((self.pos[1] + self.radius) - platform.top)
+                    candidates.append((depth, -E2))
+
+                # Face inferior (normal apontando para baixo: +E2 = [0, 1])
+                if self.velocity[1] < 0:
+                    depth = abs((self.pos[1] - self.radius) - platform.bottom)
+                    candidates.append((depth, E2))
+
+                # Face esquerda (normal apontando para esquerda: -E1 = [-1, 0])
+                if self.velocity[0] > 0:
+                    depth = abs((self.pos[0] + self.radius) - platform.left)
+                    candidates.append((depth, -E1))
+
+                # Face direita (normal apontando para direita: +E1 = [1, 0])
+                if self.velocity[0] < 0:
+                    depth = abs((self.pos[0] - self.radius) - platform.right)
+                    candidates.append((depth, E1))
+
+                if candidates:
+                    # Seleciona a face com menor penetração (colisão frontal)
+                    candidates.sort(key=lambda item: item[0])
+                    _, normal = candidates[0]
+
+                    # Reflexão de Álgebra Linear: v' = v - 2 * (v . n) * n
+                    dot_vn = float(np.dot(self.velocity, normal))
+                    self.velocity = self.velocity - 2.0 * dot_vn * normal
+
+                    # Translação corretiva ao longo da normal para descolar da borda
+                    self.pos += normal * (self.radius + 1.5)
+
+                    self.bounces += 1
+                    if self.bounces >= self.max_bounces:
+                        self.alive = False
+                else:
+                    self.alive = False
                 break
 
 
@@ -582,8 +627,8 @@ def draw_hud(surface, player, enemy, distance, dot, can_see, projectiles_count):
         f"forward . direction_unit = {dot:.3f}",
         f"field of view = {'SIM' if can_see else 'NAO'}",
         f"Shield orbit angle = {math.degrees(player.shield.angle):.1f}° (R(θ) @ r_0)",
-        f"Active projectiles = {projectiles_count} (v = s * u)",
-        "A/D: mover | W/Espaco: pular | Clique Mouse: disparar | R: reiniciar",
+        f"Active projectiles = {projectiles_count} (Ricochete: v' = v - 2(v·n)n)",
+        "A/D: mover | W/Espaco: pular | Clique Mouse: disparar ricochete | R: reiniciar",
     ]
 
     y = 58
