@@ -11,6 +11,7 @@ O jogador controla um personagem que deve navegar pelo cenário de plataformas, 
 ### Controles
 - **A / D** ou **Setas Esquerda/Direita**: Movimentar horizontalmente
 - **W / Espaço / Seta Cima**: Pular
+- **Botão Esquerdo do Mouse**: Mirar e disparar projéteis vetoriais
 - **R**: Reiniciar o jogo
 - **ESC**: Sair do jogo
 
@@ -60,6 +61,15 @@ Este projeto serve como demonstração prática dos seguintes tópicos matemáti
 - Orbes protetores orbitam o jogador continuamente aplicando a matriz de rotação 2D $R(\theta(t))$ sobre o vetor base radial $\mathbf{r}_0 = [r, 0]^T$:
   $$\mathbf{p}_{\text{orbe}, i} = \mathbf{p}_{\text{jogador}} + R\left(\omega t + \frac{2\pi i}{N}\right) \begin{bmatrix} r \\ 0 \end{bmatrix}$$
 - A detecção de colisão entre orbe e inimigo utiliza a norma euclidiana $\|\mathbf{p}_{\text{inimigo}} - \mathbf{p}_{\text{orbe}}\|$. Quando ocorre impacto, um impulso vetorial ao longo do versor normal $\mathbf{\hat{n}} = \frac{\mathbf{d}}{\|\mathbf{d}\|}$ é aplicado para repelir o inimigo.
+
+### 8. Sistema de Disparo e Mira (Subtração Vetorial e Versores)
+- **Transformação de Câmera (Espaço de Tela para Espaço de Mundo):**
+  $$\mathbf{p}_{\text{alvo}} = \mathbf{p}_{\text{mouse\_tela}} + \begin{bmatrix} \text{camera\_x} \\ 0 \end{bmatrix}$$
+- **Vetor Direção e Versor Unitário:**
+  $$\mathbf{d} = \mathbf{p}_{\text{alvo}} - \mathbf{p}_{\text{jogador\_centro}}, \quad \mathbf{\hat{u}} = \frac{\mathbf{d}}{\|\mathbf{d}\|}$$
+- **Velocidade Vetorial do Projétil (Multiplicação por Escalar):**
+  $$\mathbf{v}_{\text{projétil}} = v_{\text{disparo}} \cdot \mathbf{\hat{u}}$$
+- **Linha de Mira:** Segmento orientado $\mathbf{p}_{\text{mira}} = \mathbf{p}_{\text{jogador}} + L \cdot \mathbf{\hat{u}}$. Atingir o inimigo reinicia sua posição ao registrar impacto por proximidade de norma euclidiana.
 
 ---
 

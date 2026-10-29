@@ -83,6 +83,7 @@ TEXT_COLOR = (235, 240, 245)
 VISION_COLOR = (240, 190, 70)
 GOAL_COLOR = (90, 220, 120)
 SHIELD_COLOR = (130, 230, 255)
+PROJECTILE_COLOR = (255, 230, 80)
 
 # ------------------------------------------------------------
 # Funções de Álgebra Linear
@@ -184,6 +185,69 @@ class OrbitalShield:
                 collided = True
 
         return collided
+
+
+# ------------------------------------------------------------
+# Classe Projétil (Álgebra Linear: Vetor Direção, Versor e Cinemática)
+# ------------------------------------------------------------
+
+class Projectile:
+    def __init__(self, start_pos, target_pos, speed=650.0):
+        self.pos = np.array(start_pos, dtype=float)
+        self.speed = speed
+        self.radius = 5.0
+        self.alive = True
+        self.max_lifetime = 3.0  # segundos
+        self.lifetime = 0.0
+
+        # Vetor diferença (alvo - origem)
+        direction = target_pos - self.pos
+        dist = np.linalg.norm(direction)
+
+        # Versor unitário: u = d / ||d||
+        if dist > 0:
+            self.direction_unit = direction / dist
+        else:
+            self.direction_unit = np.array([1.0, 0.0])
+
+        # Velocidade vetorial: v = speed * u
+        self.velocity = self.speed * self.direction_unit
+
+    def update(self, dt):
+        self.lifetime += dt
+        if self.lifetime >= self.max_lifetime:
+            self.alive = False
+
+        # Integração cinemática linear: p(t + dt) = p(t) + v * dt
+        self.pos += self.velocity * dt
+
+        # Destrói se sair do mundo
+        if (self.pos[0] < 0 or self.pos[0] > WORLD_WIDTH or
+                self.pos[1] < 0 or self.pos[1] > WORLD_HEIGHT):
+            self.alive = False
+
+    def check_enemy_hit(self, enemy):
+        """Verifica se o projétil atingiu o inimigo por distância euclidiana."""
+        diff = enemy.pos - self.pos
+        dist = np.linalg.norm(diff)
+        if dist <= self.radius + 20.0:  # raio de colisão do inimigo
+            self.alive = False
+            enemy.reset()  # Reinicia o inimigo
+            return True
+        return False
+
+    def check_platform_collision(self, platforms):
+        """Colisão simples com plataformas (destrói o projétil ao colidir)."""
+        rect = pygame.Rect(
+            int(self.pos[0] - self.radius),
+            int(self.pos[1] - self.radius),
+            int(self.radius * 2),
+            int(self.radius * 2)
+        )
+        for platform in platforms:
+            if rect.colliderect(platform):
+                self.alive = False
+                break
 
 
 # ------------------------------------------------------------
@@ -411,6 +475,29 @@ def draw_shield(surface, player, camera_x):
         pygame.draw.circle(surface, (255, 255, 255), (screen_x, screen_y), int(player.shield.orb_radius - 3))
 
 
+def draw_projectiles(surface, projectiles, camera_x):
+    for p in projectiles:
+        screen_x = int(p.pos[0] - camera_x)
+        screen_y = int(p.pos[1])
+        pygame.draw.circle(surface, PROJECTILE_COLOR, (screen_x, screen_y), int(p.radius))
+        pygame.draw.circle(surface, (255, 255, 255), (screen_x, screen_y), int(p.radius - 2))
+
+
+def draw_aim_line(surface, player, camera_x):
+    mouse_screen = np.array(pygame.mouse.get_pos(), dtype=float)
+    mouse_world = mouse_screen + np.array([camera_x, 0.0])
+    diff = mouse_world - player.center
+    dist = np.linalg.norm(diff)
+    if dist > 0:
+        unit = diff / dist
+        start = (int(player.center[0] - camera_x), int(player.center[1]))
+        end = (
+            int(player.center[0] - camera_x + unit[0] * 55),
+            int(player.center[1] + unit[1] * 55)
+        )
+        pygame.draw.line(surface, (200, 240, 255), start, end, 2)
+
+
 def draw_platforms(surface, camera_x):
     for platform in platforms:
         rect = platform.copy()
@@ -479,7 +566,7 @@ def draw_vision(surface, enemy, camera_x, distance, dot, can_see):
     )
 
 
-def draw_hud(surface, player, enemy, distance, dot, can_see):
+def draw_hud(surface, player, enemy, distance, dot, can_see, projectiles_count):
     title = title_font.render(
         "Platform Hunter - Álgebra Linear",
         True,
@@ -495,7 +582,8 @@ def draw_hud(surface, player, enemy, distance, dot, can_see):
         f"forward . direction_unit = {dot:.3f}",
         f"field of view = {'SIM' if can_see else 'NAO'}",
         f"Shield orbit angle = {math.degrees(player.shield.angle):.1f}° (R(θ) @ r_0)",
-        "A/D ou setas: mover   |   W/Espaco: pular   |   R: reiniciar",
+        f"Active projectiles = {projectiles_count} (v = s * u)",
+        "A/D: mover | W/Espaco: pular | Clique Mouse: disparar | R: reiniciar",
     ]
 
     y = 58
@@ -526,6 +614,8 @@ def draw_background(surface, camera_x):
 def main():
     player = Player()
     enemy = Enemy()
+    projectiles = []
+    camera_x = 0.0
 
     running = True
 
@@ -543,17 +633,34 @@ def main():
                 elif event.key == pygame.K_r:
                     player.reset()
                     enemy.reset()
+                    projectiles.clear()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    # Converte coordenadas da tela para o espaço do mundo: p_world = p_screen + [camera_x, 0]
+                    mouse_screen = np.array(event.pos, dtype=float)
+                    mouse_world = mouse_screen + np.array([camera_x, 0.0])
+                    projectiles.append(Projectile(player.center, mouse_world))
 
         keys = pygame.key.get_pressed()
 
         player.update(dt, keys)
         player.shield.check_enemy_collision(enemy, player.center)
+
+        # Atualiza projéteis
+        for p in projectiles:
+            p.update(dt)
+            p.check_platform_collision(platforms)
+            p.check_enemy_hit(enemy)
+        projectiles = [p for p in projectiles if p.alive]
+
         distance, dot, can_see = enemy.update(player, dt)
 
         # Vitória.
         if player.rect.colliderect(goal_rect):
             player.reset()
             enemy.reset()
+            projectiles.clear()
 
         # Câmera acompanha o jogador.
         camera_x = player.pos[0] - WIDTH * 0.35
@@ -567,7 +674,9 @@ def main():
         draw_enemy(screen, enemy, camera_x)
         draw_player(screen, player, camera_x)
         draw_shield(screen, player, camera_x)
-        draw_hud(screen, player, enemy, distance, dot, can_see)
+        draw_aim_line(screen, player, camera_x)
+        draw_projectiles(screen, projectiles, camera_x)
+        draw_hud(screen, player, enemy, distance, dot, can_see, len(projectiles))
 
         pygame.display.flip()
 
