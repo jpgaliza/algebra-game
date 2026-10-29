@@ -97,6 +97,10 @@ $$\mathbf{v}' = \mathbf{v}_{\parallel} - \mathbf{v}_{\perp} = \mathbf{v} - 2(\ma
 
 ### Instalação das dependências
 ```bash
+# Recomendado (compatível com todas as versões do Python e macOS Apple Silicon):
+pip install pygame-ce numpy
+
+# Ou a versão tradicional do pygame:
 pip install pygame numpy
 ```
 
